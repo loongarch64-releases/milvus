@@ -1,0 +1,82 @@
+name: milvus-io/milvus
+
+on:
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+env:
+  UPSTREAM_ORG: "milvus-io"
+  UPSTREAM_REPO: "milvus"
+
+jobs:
+  check-version:
+    if: github.repository_owner == 'loongarch64-releases'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.VERSION }}
+      should_build: ${{ steps.check.outputs.SHOULD_BUILD }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check version and release status
+        id: check
+        run: |
+          # 1. 获取上游最新版本
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/${{ env.UPSTREAM_ORG }}/${{ env.UPSTREAM_REPO }}/releases/latest | jq -r ".tag_name")
+          echo "Latest upstream milvus version: $LATEST_VERSION"
+          LATEST_VERSION=${LATEST_VERSION#v}
+
+          # 2. 检查本仓库是否已存在该 Release
+          if gh release view "$LATEST_VERSION" >/dev/null 2>&1; then
+            echo "Release $LATEST_VERSION already exists. Skipping."
+            echo "SHOULD_BUILD=false" >> $GITHUB_OUTPUT
+          else
+            echo "Release $LATEST_VERSION not found. Need to build."
+            echo "VERSION=$LATEST_VERSION" >> $GITHUB_OUTPUT
+            echo "SHOULD_BUILD=true" >> $GITHUB_OUTPUT
+          fi
+
+  release:
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Builer Image
+        run: |
+          docker buildx build --platform linux/loong64 \
+            -t milvus-builder . --load
+
+      - name: Build Release
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          mkdir -p dists/$VERSION
+          chmod +x ./process_version.sh
+
+          docker run --rm \
+            --platform linux/loong64 \
+            -v $(pwd):/workspace \
+            -e VERSION=$VERSION \
+            milvus-builder /bin/bash /workspace/process_version.sh $VERSION
+
+      - name: Upload Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=${{ needs.check-version.outputs.version }}
+          gh release create "$VERSION" \
+            --title "milvus $VERSION" \
+            --notes "Automated build for version $VERSION based on ${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}" \
+            dists/$VERSION/*
+
