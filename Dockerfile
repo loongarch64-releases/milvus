@@ -14,6 +14,12 @@ RUN dnf install -y \
 
 RUN pip3 install jinja2==3.1.3 conan==1.64.1
 
+RUN mkdir -p /root/.cargo/bin/ && \
+    ln -sf /usr/bin/cargo /root/.cargo/bin/cargo && \
+    ln -sf /usr/bin/rustc /root/.cargo/bin/rustc
+
+ENV CARGO_HOME=/root/.cargo
+
 WORKDIR /workspace
 
 CMD ["/bin/bash"]
