@@ -76,5 +76,5 @@ jobs:
           gh release create "$VERSION" \
             --title "milvus $VERSION" \
             --notes "Automated build for version $VERSION based on ${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}" \
-            dists/$VERSION/*
+            dists/milvus-$VERSION.tar.gz
 
