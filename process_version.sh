@@ -42,7 +42,6 @@ post_build()
 {
     cp -r "$SRCS/$VERSION/bin/milvus" "$SRCS/$VERSION/configs" "$SRCS/$VERSION/lib" "$DISTS/$VERSION"
     tar -czf "$DISTS/$PROJ-$VERSION.tar.gz" -C "$DISTS" "$VERSION"
-    rm -rf "$DISTS/$VERSION" "$SRC"
 }
 
 main()
