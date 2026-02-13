@@ -1,8 +1,6 @@
 name: milvus-io/milvus (Self-hosted)
 
 on:
-  schedule:
-    - cron: '0 16 * * *'
   workflow_dispatch:
 
 env:
