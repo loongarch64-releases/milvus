@@ -18,4 +18,7 @@ sed -i "s/-s build_type=\${BUILD_TYPE} -s compiler.version=\${GCC_VERSION} -s co
 # 纠正 libmilvus_core.so 路径
 sed -i "s/lib\/libmilvus_core.so/lib64\/libmilvus_core.so/" "$src/scripts/setenv.sh"
 
+# 修复 openssl 动态库导致的 EVP_md2 符号问题
+sed -i 's/"openssl:shared": True/"openssl:shared": False/' "$src/internal/core/conanfile.py"
+
 echo "milvus patched"
