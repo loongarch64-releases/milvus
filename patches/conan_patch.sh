@@ -63,7 +63,7 @@ class CMakeLoongarch64(ConanFile):
         self.cpp_info.libdirs = []
         self.output.info("Using system CMake for LoongArch64 adapter")
 EOF
-conan export-pkg . cmake/3.30.5@ -s os=Linux -s arch=loongarch64
+conan export-pkg . cmake/3.30.5@ --profile:build=loongarch --profile:host=loongarch
 rm -f conanfile.py
 
 echo "done"
