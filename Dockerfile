@@ -1,4 +1,4 @@
-FROM lcr.loongnix.cn/openeuler/openeuler:24.03
+FROM lcr.loongnix.cn/openeuler/openeuler:24.03-LTS-SP3
 
 RUN sed -i '/\[update-source\]/,$d' /etc/yum.repos.d/openEuler.repo 
 RUN sed -i "s#openEuler-24.03-LTS/#openEuler-24.03-LTS-SP3/#" /etc/yum.repos.d/openEuler.repo
