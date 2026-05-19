@@ -24,7 +24,7 @@ prepare()
     wget -O "$SRCS/$VERSION.tar.gz" --quiet --show-progress "https://github.com/$ORG/$PROJ/archive/refs/tags/v$VERSION.tar.gz"
     tar -xzf "$SRCS/$VERSION.tar.gz" -C "$SRCS/$VERSION" --strip-components=1
 
-    "$PATCHES/milvus_patch.sh" "$SRCS/$VERSION"
+    "$PATCHES/milvus_patch.sh" "$SRCS/$VERSION" "$VERSION"
     "$PATCHES/conan_patch.sh" "$SRCS/$VERSION"
     "$PATCHES/dep_patch.sh" "$SRCS/$VERSION" "$PATCHES"
 }
