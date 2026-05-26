@@ -20,6 +20,4 @@ RUN mkdir -p /root/.cargo/bin/ && \
 
 ENV CARGO_HOME=/root/.cargo
 
-WORKDIR /workspace
-
 CMD ["/bin/bash"]
