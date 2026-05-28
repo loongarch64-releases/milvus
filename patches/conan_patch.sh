@@ -48,22 +48,4 @@ mv loongarch_hook.py "$HOME/.conan/hooks/"
 conan config set hooks.loongarch_hook
 
 
-# 使用系统 cmake
-cat > conanfile.py << 'EOF'
-from conans import ConanFile
-
-class CMakeLoongarch64(ConanFile):
-    name = "cmake"
-    version = "3.30.5" # 欺骗依赖链，匹配版本要求
-    settings = "os", "arch", "compiler", "build_type"
-    description = "Fake CMake package for LoongArch64 to use system binary"
-
-    def package_info(self):
-        self.cpp_info.includedirs = []
-        self.cpp_info.libdirs = []
-        self.output.info("Using system CMake for LoongArch64 adapter")
-EOF
-conan export-pkg . cmake/3.30.5@ --profile:build=loongarch --profile:host=loongarch
-rm -f conanfile.py
-
 echo "done"
