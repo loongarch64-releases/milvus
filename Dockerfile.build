@@ -1,7 +1,7 @@
 FROM lcr.loongnix.cn/openeuler/openeuler:24.03-LTS-SP3
 
 RUN sed -i '/\[update-source\]/,$d' /etc/yum.repos.d/openEuler.repo 
-RUN sed -i "s#openEuler-24.03-LTS/#openEuler-24.03-LTS-SP3/#" /etc/yum.repos.d/openEuler.repo
+RUN sed -i "s#openEuler-24.03-LTS-Next/#openEuler-24.03-LTS-SP3/#" /etc/yum.repos.d/openEuler.repo
 
 RUN dnf install -y \
     wget curl which git make automake autoconf libtool m4 \
