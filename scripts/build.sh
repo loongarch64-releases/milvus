@@ -27,22 +27,20 @@ prepare()
 {
     echo "📦 [Prepare] Setting up build environment..."
 
-    local TAR_FILE="${SRCS}/${VERSION}.tar.gz"
-    local SRC_DIR="${SRCS}/${VERSION}"
+    local MAJOR_VER="$(echo ${VERSION} | cut -d. -f1)"
+    local CONAN
 
-    [ -d "${SRC_DIR}" ] && rm -rf "${SRC_DIR}"
-    mkdir -p ${SRC_DIR}
-
-    if [ ! -f "${TAR_FILE}" ]; then
-        wget -O "${TAR_FILE}" --quiet --show-progress \
-    	    "https://github.com/${UPSTREAM_OWNER}/${UPSTREAM_REPO}/archive/refs/tags/v${VERSION}.tar.gz"
-    fi
-    tar -xzf "${TAR_FILE}" -C "${SRC_DIR}" --strip-components=1
+    git clone -b "v${VERSION}" --depth 1 "https://github.com/${UPSTREAM_OWNER}/${UPSTREAM_REPO}.git" "${SRCS}/${VERSION}"
 
     # patch
-    "${PATCHES}/milvus_patch.sh" "${SRC_DIR}" "${VERSION}"
-    "${PATCHES}/conan_patch.sh" "${SRC_DIR}"
-    "${PATCHES}/dep_patch.sh" "${SRC_DIR}" "${PATCHES}"
+    if [ "${MAJOR_VER}" -ge 3 ]; then
+	CONAN=conan2
+    else
+	CONAN=conan1
+    fi
+    "${PATCHES}/milvus_patch.sh" "${SRCS}/${VERSION}" "${VERSION}"
+    "${PATCHES}/${CONAN}/conan_patch.sh" "${SRCS}/${VERSION}" "${PATCHES}"
+    "${PATCHES}/${CONAN}/dep_patch.sh" "${SRCS}/${VERSION}" "${PATCHES}"
     
     echo "✅ [Prepare] Environment ready."
 }

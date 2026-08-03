@@ -9,6 +9,8 @@ src=$1
 
 echo "preparing conan env..."
 
+pip3 install conan==1.64.1
+
 conan config init
 # 允许拉包
 conan config set general.revisions_enabled=1
@@ -22,12 +24,14 @@ la_conan_profile="$HOME/.conan/profiles/loongarch"
 cp "$HOME/.conan/profiles/default" $la_conan_profile
 sed -i "s/x86_64/loongarch64/" $la_conan_profile
 sed -i "s/compiler.libcxx.*/compiler.libcxx=libstdc++11/" $la_conan_profile
+
+# conan 架构列表添加 loongarch64
 sed -i "s/arch_build: \[/arch_build: \[loongarch64, /" "$HOME/.conan/settings.yml"
 sed -i "s/arch: \[/arch: \[loongarch64, /" "$HOME/.conan/settings.yml"
 
 
-# 处理conan管理的三方包config过旧情况
-cat > loongarch_hook.py << 'EOF'
+# 处理 conan 管理的三方包 config 过旧情况
+cat > hook_loongarch.py << 'EOF'
 import os
 import shutil
 
@@ -44,7 +48,7 @@ def pre_build(output, conanfile, **kwargs):
                         shutil.copy(patch_src, target)
 EOF
 mkdir -p "$HOME/.conan/hooks"
-mv loongarch_hook.py "$HOME/.conan/hooks/"
+mv hook_loongarch.py "$HOME/.conan/hooks/"
 conan config set hooks.loongarch_hook
 
 
