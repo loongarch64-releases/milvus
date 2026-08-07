@@ -1,11 +1,12 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
-    echo "need milvus's path"
+if [ $# -ne 2 ]; then
+    echo "need paths of milvus and patches"
     exit 1
 fi
 
 src=$1
+patches=$2
 
 echo "preparing conan env..."
 

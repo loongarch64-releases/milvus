@@ -23,9 +23,11 @@ sed -i "s/-s compiler.version=\${GCC_VERSION} -s compiler.libcxx=libstdc++11/-pr
 # 纠正 libmilvus_core.so 路径
 sed -i "s/lib\/libmilvus_core.so/lib64\/libmilvus_core.so/" "$src/scripts/setenv.sh"
 
-# 修复 openssl 动态库导致的 EVP_md2 符号问题(2.6.11开始)
-if [ "$ver_num" -ge 2006011 ]; then
-    sed -i 's#"openssl/*:shared": True#"openssl/*:shared": False#' "$src/internal/core/conanfile.py"
+# 修复 conan openssl 动态库导致的 EVP_md2 符号缺失问题
+if [ "$ver_num" -ge 3000000 ]; then
+    sed -i 's#"openssl/\*:shared": True#"openssl/\*:shared": False#' "$src/internal/core/conanfile.py"
+elif [ "$ver_num" -ge 2006011 ]; then
+    sed -i 's#"openssl:shared": True#"openssl:shared": False#' "$src/internal/core/conanfile.py"
 fi
 
 # 2.6.16 引入向量化过滤功能，在 xsimd 适配loongarch之前，在loongarch上退回到标量过滤
@@ -58,4 +60,54 @@ if [ "$ver_num" -ge 2006016 ]; then
 #endif' "$simdFilterCpp"
 fi
 
+# 修复 HashTable 不完整的标量回退
+if [ "$ver_num" -ge 3000000 ]; then
+    hashTableCpp="${src}/internal/core/src/exec/HashTable.cpp"
+    hashTableH="${src}/internal/core/src/exec/HashTable.h"
+    cat > LOONGARCH_PATCH <<'EOF'
+namespace {
+inline BaseHashTable::TagVector
+makeTagVector(uint8_t tag) {
+#if XSIMD_WITH_SSE2 || XSIMD_WITH_NEON
+    return BaseHashTable::TagVector(tag);
+#else
+    BaseHashTable::TagVector result;
+    result.fill(tag);
+    return result;
+#endif
+}
+
+inline BaseHashTable::MaskType
+tagMatchMask(const BaseHashTable::TagVector& left,
+             const BaseHashTable::TagVector& right) {
+#if XSIMD_WITH_SSE2 || XSIMD_WITH_NEON
+    return static_cast<BaseHashTable::MaskType>(
+        milvus::toBitMask(left == right));
+#else
+    BaseHashTable::MaskType mask = 0;
+    for (size_t i = 0; i < left.size(); ++i) {
+        if (left[i] == right[i]) {
+            mask |= static_cast<BaseHashTable::MaskType>(1U << i);
+        }
+    }
+    return mask;
+#endif
+}
+}
+EOF
+    sed -i '/namespace exec {/r LOONGARCH_PATCH' "${hashTableCpp}"
+    rm -f LOONGARCH_PATCH
+
+    sed -i 's/BaseHashTable::TagVector::broadcast/makeTagVector/' "${hashTableCpp}"
+    sed -i 's/TagVector::broadcast/makeTagVector/' "${hashTableCpp}"
+    sed -i 's/milvus::toBitMask(tagsInTable_ == wantedTags_)/tagMatchMask(tagsInTable_, wantedTags_)/' "${hashTableCpp}"
+    sed -i 's/milvus::toBitMask(tagsInTable_ == kEmptyGroup)/tagMatchMask(tagsInTable_, kEmptyGroup)/' "${hashTableCpp}"
+    sed -i 's/toBitMask(tags == kEmptyGroup)/tagMatchMask(tags, kEmptyGroup)/' "${hashTableCpp}"
+    sed -i '/#pragma once/a\
+#include <array>\
+#include "common/FastMem.h"' "${hashTableH}"
+
+fi
+
 echo "milvus patched"
+

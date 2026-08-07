@@ -34,9 +34,12 @@ prepare()
 
     # patch
     if [ "${MAJOR_VER}" -ge 3 ]; then
-	CONAN=conan2
+        # 处理链接 libmilvus-storage.so 时 B26 溢出
+        export CFLAGS="-mcmodel=medium"
+        export CXXFLAGS="-mcmodel=medium"
+        CONAN=conan2
     else
-	CONAN=conan1
+        CONAN=conan1
     fi
     "${PATCHES}/milvus_patch.sh" "${SRCS}/${VERSION}" "${VERSION}"
     "${PATCHES}/${CONAN}/conan_patch.sh" "${SRCS}/${VERSION}" "${PATCHES}"
@@ -49,7 +52,7 @@ prepare()
 build()
 {
     echo "🔨 [Build] Compiling source code..."
-    
+
     pushd "$SRCS/$VERSION"
     make install
     popd

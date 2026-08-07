@@ -89,16 +89,16 @@ conan_patch_dep() {
     dep_list_from_conan+=("b2")
 
     for dep in "${dep_list_from_conan[@]}"; do
-	# conan2 recipe 习惯使用依赖名的前 5 个字符作为路径开头
+        # conan2 recipe 习惯使用依赖名的前 5 个字符作为路径开头
         local conan_data="$HOME/.conan2/p/${dep:0:5}"
         conanfile=$(find "$conan_data"* -path "*/conanfile.py" | head -n 1)
 	
-	# 修复 b2/5.4.2 存在的缺陷 (5.5.0已修复)
-	if [[ "$dep" == "b2" ]]; then
-        sed -i '/from conan.tools.files/a\
+        # 修复 b2/5.4.2 存在的缺陷 (5.5.0已修复)
+        if [[ "$dep" == "b2" ]]; then
+            sed -i '/from conan.tools.files/a\
 from conan.tools.files import replace_in_file' "$conanfile"
 
-	cat > LOONGARCH_PATCH <<'EOF'
+            cat > LOONGARCH_PATCH <<'EOF'
         variable_cpp = os.path.join(
             self.source_folder, "src", "engine", "variable.cpp"
         )
@@ -130,13 +130,14 @@ from conan.tools.files import replace_in_file' "$conanfile"
         )
 EOF
 
-        sed -i '/def build(self):/r LOONGARCH_PATCH' "$conanfile"
+            sed -i '/def build(self):/r LOONGARCH_PATCH' "$conanfile"
+            rm -f LOONGARCH_PATCH
 
 	# 目前依赖的1.83.0中的 else if [ os.platform ] in ARM ARM64 { tmp = aapcs ; } 会导致loongarch的abi被误判为aapcs
 	# 最终构建出的 libboost_context.so.1.83.0 缺少jump_fcontext ontop_fcontext make_fcontext 符号
 	# 1.84.0 已修复该问题 
 	elif [[ "$dep" == "boost" ]]; then
-	    sed -i 's/if self.settings.arch in (/if self.settings.arch in ("loongarch64", /' $conanfile
+            sed -i 's/if self.settings.arch in (/if self.settings.arch in ("loongarch64", /' $conanfile
             
             cat > LOONGARCH_PATCH << 'EOF'
         jamfile = os.path.join(
@@ -159,14 +160,14 @@ EOF
             rm -f LOONGARCH_PATCH
 	
         elif [[ "$dep" == "rocksdb" ]]; then
-	    sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
+            sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
 
-	    if ! grep -q 'replace_in_file' "$conanfile"; then
+            if ! grep -q 'replace_in_file' "$conanfile"; then
                 sed -i '/from conan.tools.files import/a\
 from conan.tools.files import replace_in_file' "$conanfile"
             fi
 
-	    cat > LOONGARCH_PATCH << 'EOF'
+            cat > LOONGARCH_PATCH << 'EOF'
         self.output.info("Patching rocksdb for LoongArch64")
         
         source_dir = self.source_folder
@@ -242,9 +243,10 @@ from conan.tools.files import replace_in_file' "$conanfile"
                 "sparc64 loongarch64"
             )
 EOF
-	    sed -i '/apply_conandata_patches(self)/r LOONGARCH_PATCH' "$conanfile"
+            sed -i '/apply_conandata_patches(self)/r LOONGARCH_PATCH' "$conanfile"
+            rm -f LOONGARCH_PATCH
 
-	elif [[ "$dep_name" == "milvus-common" ]]; then
+        elif [[ "$dep_name" == "milvus-common" ]]; then
             if ! grep -q 'def _patch_sources(self):' "$conanfile"; then
                 echo "[dep_patch ERROR] _patch_sources() not found in $conanfile" >&2
                 return 1
@@ -270,11 +272,12 @@ EOF
 EOF
 
             sed -i '/def _patch_sources(self)/r LOONGARCH_PATCH' "$conanfile"
+            rm -f LOONGARCH_PATCH
 
-	elif [[ "$dep_name" == "icu" ]]; then
+        elif [[ "$dep_name" == "icu" ]]; then
             sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
 
-	fi
+        fi
     done
     rm -f LOONGARCH_PATCH
     echo "conanfile patched"
@@ -286,22 +289,22 @@ cmake_patch_dep() {
 
     local dep_list=(
         "jemalloc" 
-	"knowhere"
+        "knowhere"
     )
     
     echo "pathing dep's cmakelists..." 
     for dep in "${dep_list[@]}"; do
         cmakelists="$src/internal/core/thirdparty/$dep/CMakeLists.txt"
 
-	# 替换旧的 config
-	if [[ "$dep" == "jemalloc" ]]; then
-	    if ! grep -q "loongarch" "$cmakelists"; then
-	        sed -i '/PATCH_COMMAND touch doc\/jemalloc.3 doc\/jemalloc.html/a \        COMMAND sed -i "/#  ifdef __s390__/i #  if defined __loongarch__\\\\n#    define LG_QUANTUM          4\\\\n#  endif" include/jemalloc/internal/quantum.h' $cmakelists
-	        sed -i "/PATCH_COMMAND touch doc\/jemalloc.3 doc\/jemalloc.html/a \        COMMAND cp -f $patches/config.guess build-aux/config.guess\n        COMMAND cp -f $patches/config.sub build-aux/config.sub" $cmakelists
-	    fi
+        # 替换旧的 config
+        if [[ "$dep" == "jemalloc" ]]; then
+            if ! grep -q "loongarch" "$cmakelists"; then
+                sed -i '/PATCH_COMMAND touch doc\/jemalloc.3 doc\/jemalloc.html/a \        COMMAND sed -i "/#  ifdef __s390__/i #  if defined __loongarch__\\\\n#    define LG_QUANTUM          4\\\\n#  endif" include/jemalloc/internal/quantum.h' $cmakelists
+                sed -i "/PATCH_COMMAND touch doc\/jemalloc.3 doc\/jemalloc.html/a \        COMMAND cp -f $patches/config.guess build-aux/config.guess\n        COMMAND cp -f $patches/config.sub build-aux/config.sub" $cmakelists
+            fi
 
-	elif [[ "$dep" == "knowhere" ]]; then
-	    if ! grep -q "loongarch" "$cmakelists"; then
+        elif [[ "$dep" == "knowhere" ]]; then
+            if ! grep -q "loongarch" "$cmakelists"; then
                 cat > LOONGARCH_PATCH << 'EOF'
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch64")
         set(KNOWHERE_PATCH_MARKER "${knowhere_SOURCE_DIR}/.loongarch_patched")
@@ -316,7 +319,7 @@ cmake_patch_dep() {
                 "${knowhere_SOURCE_DIR}/thirdparty/DiskANN/src/index.cpp"
             )
         
-            # knowhere
+            # knowhere -- add distances_lsx
             file(COPY "__PATCHES_DIR__/distances_lsx.cc" DESTINATION "${knowhere_SOURCE_DIR}/src/simd/")
             file(COPY "__PATCHES_DIR__/distances_lsx.h" DESTINATION "${knowhere_SOURCE_DIR}/src/simd/")
         
@@ -343,6 +346,7 @@ endif()]=])
 
   list(REMOVE_ITEM FAISS_SRCS ${FAISS_SPECIFIC_SRCS})
   add_library(faiss STATIC ${FAISS_SRCS})
+  target_sources(faiss PRIVATE ${FAISS_FASTSCAN_SRCS})
 
   target_compile_options(
     faiss
@@ -447,19 +451,43 @@ decltype(ivec_L2sqr) ivec_L2sqr = ivec_L2sqr_lsx;
     support_pq_fast_scan = false;
 #endif]=])
             string(REPLACE "\n" "\\n" HOOK_INIT_ESC "${HOOK_INIT}")
-            execute_process(COMMAND sed -i "/std::lock_guard<std::mutex> lock(hook_mutex);/a ${HOOK_INIT_ESC}" ${HOOK_CC})
-
+            execute_process(COMMAND sed -i "/fvec_hook(std::string& simd_type)/,/#if defined(__x86_64__)/ {/#if defined(__x86_64__)/i ${HOOK_INIT_ESC}
+}" ${HOOK_CC})
             file(WRITE "${KNOWHERE_PATCH_MARKER}" "patched")
         endif()
+    endif()
+
+    # make Knowhere masked-vbyte SSE code compile through SIMDe
+    set(_milvus_loongarch_varintdecode
+        "${knowhere_SOURCE_DIR}/src/index/sparse/codec/varintdecode.c")
+    if(EXISTS "${_milvus_loongarch_varintdecode}")
+        file(READ "${_milvus_loongarch_varintdecode}" _varintdecode_src)
+
+        string(REPLACE
+            "#elif defined(__aarch64__)\n#define SIMDE_ENABLE_NATIVE_ALIASES"
+            "#elif defined(__aarch64__) || defined(__loongarch64)\n#define SIMDE_ENABLE_NATIVE_ALIASES"
+            _varintdecode_src
+            "${_varintdecode_src}")
+
+        string(REPLACE
+            "#include <stdint.h>"
+            "#include <stddef.h>\n#include <stdint.h>"
+            _varintdecode_src
+            "${_varintdecode_src}")
+
+        file(WRITE "${_milvus_loongarch_varintdecode}" "${_varintdecode_src}")
     endif()
 EOF
                 sed -i "/FetchContent_Populate( knowhere )/r LOONGARCH_PATCH" "$cmakelists"
                 rm -f LOONGARCH_PATCH
 
-		sed -i "s|__PATCHES_DIR__|$patches|" $cmakelists
-	    fi
+                sed -i "s|__PATCHES_DIR__|$patches|" "$cmakelists"
 
-	fi
+		# 修复conan管理milvus-common时，knowhere没有继承milvus-common::milvus-common头文件路径的问题
+                sed -i '/set_property(DIRECTORY/a\
+include_directories(SYSTEM ${milvus-common_INCLUDE_DIRS})' "$cmakelists"
+            fi
+        fi
     done
     echo "cmakelists patched"
 }

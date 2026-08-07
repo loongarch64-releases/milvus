@@ -248,7 +248,7 @@ EOF
                 "${knowhere_SOURCE_DIR}/thirdparty/DiskANN/src/index.cpp"
             )
         
-            # knowhere
+            # knowhere -- add distances_lsx
             file(COPY "__PATCHES_DIR__/distances_lsx.cc" DESTINATION "${knowhere_SOURCE_DIR}/src/simd/")
             file(COPY "__PATCHES_DIR__/distances_lsx.h" DESTINATION "${knowhere_SOURCE_DIR}/src/simd/")
         

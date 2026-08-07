@@ -23,10 +23,13 @@ sed -i "s/arch: \[/arch: \[loongarch64, /" "$HOME/.conan2/settings.yml"
 # conanfile for loongarch
 conan profile detect --name loongarch --force
 sed -i "s/x86_64/loongarch64/" "$HOME/.conan2/profiles/loongarch"
-# 使用系统 cmake
+# 使用系统 cmake，代码模型使用 medium
 cat << 'EOF' >> "$HOME/.conan2/profiles/loongarch"
 [platform_tool_requires]
 cmake/3.27.9
+[conf]
+tools.build:cflags+=["-mcmodel=medium"]
+tools.build:cxxflags+=["-mcmodel=medium"]
 EOF
 
 # 处理 conan2 管理的三方包 config 过旧情况
