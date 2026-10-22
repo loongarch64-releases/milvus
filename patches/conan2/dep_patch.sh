@@ -328,7 +328,7 @@ cmake_patch_dep() {
             set(FAISS_INS_A [=[if(__LOONGARCH64)
   set(UTILS_SRC src/simd/hook.cc src/simd/distances_lsx.cc src/simd/distances_ref.cc)
   add_library(knowhere_utils STATIC ${UTILS_SRC})
-  target_link_libraries(knowhere_utils PUBLIC glog::glog)
+  target_link_libraries(knowhere_utils PUBLIC glog::glog fmt::fmt)
 endif()]=])
             string(REPLACE "\n" "\\n" FAISS_INS_A_ESC "${FAISS_INS_A}")
             execute_process(COMMAND sed -i "/list(REMOVE_ITEM FAISS_SRCS \${FAISS_RHNSW_SRCS})/a ${FAISS_INS_A_ESC}" ${FAISS_CMAKE})
