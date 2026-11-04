@@ -28,7 +28,12 @@ if [ ! -f "$DOCKERFILE_PATH" ]; then
 fi
 
 echo "🔨 Building Docker image: ${DOCKER_IMAGE_NAME} ..."
-docker build -t "${DOCKER_IMAGE_NAME}" -f "${DOCKERFILE_PATH}" "${ROOT_DIR}"
+docker buildx build \
+    --platform "${PLATFORM}" \
+    --load \
+    -t "${DOCKER_IMAGE_NAME}" \
+    -f "${DOCKERFILE_PATH}" \
+    "${ROOT_DIR}"
 
 echo "🏃 Running build inside container..."
 
