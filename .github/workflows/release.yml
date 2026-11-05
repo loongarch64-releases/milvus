@@ -2,6 +2,11 @@ name: Auto Build milvus
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build"
+        required: false
+        type: string
 
 env:
   UPSTREAM_OWNER: "milvus-io"
@@ -22,12 +27,19 @@ jobs:
 
       - name: Check Version
         id: get_version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          # 1. 获取上游最新版本
-          chmod +x ./scripts/get_version.sh
-          LATEST_VERSION=$(./scripts/get_version.sh)
+          # 1. 手动指定版本，未指定时获取上游最新版本
+          if [[ -n "${REQUESTED_VERSION}" ]]; then
+            LATEST_VERSION="${REQUESTED_VERSION}"
+            echo "Requested version: ${LATEST_VERSION}"
+          else
+            chmod +x ./scripts/get_version.sh
+            LATEST_VERSION=$(./scripts/get_version.sh)
+            echo "Latest upstream version: ${LATEST_VERSION}"
+          fi
           LATEST_VERSION=${LATEST_VERSION#v}
-          echo "Latest upstream version: $LATEST_VERSION"
 
           # 2. 检查本仓库是否已存在该 Release
           if gh release view "${LATEST_VERSION}" >/dev/null 2>&1; then
