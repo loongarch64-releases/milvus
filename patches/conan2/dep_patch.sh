@@ -13,6 +13,7 @@ dep_list_from_conan=(
 	"rocksdb" 
 	"milvus-common"
 	"icu"
+	"xz_utils"
 )
 
 get_conan_ref() {
@@ -278,6 +279,11 @@ EOF
         elif [[ "$dep_name" == "icu" ]]; then
             sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
 
+	# 本地构建时 xz_utils conandata.yml 中的两个源无法使用(网络原因)
+        elif [[ "$dep_name" == "xz_utils" ]]; then
+            conandata=$(find "$conan_data"* -path "*/conandata.yml" | head -n 1)
+            sed -i '/https:\/\/tukaani\.org\/xz\/xz-5\.4\.5\.tar\.xz/i\
+      - "https://github.com/tukaani-project/xz/releases/download/v5.4.5/xz-5.4.5.tar.xz"' $conandata
         fi
     done
     rm -f LOONGARCH_PATCH
