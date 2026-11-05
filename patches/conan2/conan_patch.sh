@@ -10,23 +10,20 @@ patches=$2
 
 echo "preparing conan2 env..."
 
-pip3 install conan==2.25.1
+pip3 install conan==2.32.0
 
 # 仓库
 CONAN_REPO=$(grep -E '^\s*CONAN_ARTIFACTORY_URL=' "$src/scripts/3rdparty_build.sh" | head -n1)
 eval "$CONAN_REPO"
 conan remote add default-conan-local2 "$CONAN_ARTIFACTORY_URL" --force --index 0
 
-# conan2 架构列表添加 loongarch64
-sed -i "s/arch: \[/arch: \[loongarch64, /" "$HOME/.conan2/settings.yml"
-
 # conanfile for loongarch
 conan profile detect --name loongarch --force
-sed -i "s/x86_64/loongarch64/" "$HOME/.conan2/profiles/loongarch"
+
 # 使用系统 cmake，代码模型使用 medium
 cat << 'EOF' >> "$HOME/.conan2/profiles/loongarch"
 [platform_tool_requires]
-cmake/3.27.9
+cmake/3.31.12
 [conf]
 tools.build:cflags+=["-mcmodel=medium"]
 tools.build:cxxflags+=["-mcmodel=medium"]

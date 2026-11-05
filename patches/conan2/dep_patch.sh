@@ -159,6 +159,7 @@ EOF
             sed -i '/apply_conandata_patches(self)/r LOONGARCH_PATCH' "$conanfile"
             rm -f LOONGARCH_PATCH
 	
+	# rocksbd 7.10.2+ 时去掉该补丁
         elif [[ "$dep" == "rocksdb" ]]; then
             sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
 
@@ -306,186 +307,18 @@ cmake_patch_dep() {
         elif [[ "$dep" == "knowhere" ]]; then
             if ! grep -q "loongarch" "$cmakelists"; then
                 cat > LOONGARCH_PATCH << 'EOF'
-    if (CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch64")
-        set(KNOWHERE_PATCH_MARKER "${knowhere_SOURCE_DIR}/.loongarch_patched")
-        if(NOT EXISTS "${KNOWHERE_PATCH_MARKER}")
-            message(STATUS "Patching Knowhere for LoongArch...")
+    message(STATUS "Patching diskann for knowhere...")
         
-            # diskann
-            set(DISKANN_PATCH_VAL "#if defined(__loongarch64)\\n#define SIMDE_ENABLE_NATIVE_ALIASES\\n#include <simde/x86/sse.h>\\n#include <simde/x86/avx.h>\\n#else\\n#include <xmmintrin.h>\\n#endif")
-            execute_process(
-                COMMAND sed -i "s|#include <xmmintrin.h>|${DISKANN_PATCH_VAL}|g" 
-                "${knowhere_SOURCE_DIR}/thirdparty/DiskANN/include/diskann/utils.h"
-                "${knowhere_SOURCE_DIR}/thirdparty/DiskANN/src/index.cpp"
-            )
-        
-            # knowhere -- add distances_lsx
-            file(COPY "__PATCHES_DIR__/distances_lsx.cc" DESTINATION "${knowhere_SOURCE_DIR}/src/simd/")
-            file(COPY "__PATCHES_DIR__/distances_lsx.h" DESTINATION "${knowhere_SOURCE_DIR}/src/simd/")
-        
-            # knowhere -- libfaiss.cmake 
-            set(FAISS_CMAKE "${knowhere_SOURCE_DIR}/cmake/libs/libfaiss.cmake")
-            set(FAISS_INS_A [=[if(__LOONGARCH64)
-  set(UTILS_SRC src/simd/hook.cc src/simd/distances_lsx.cc src/simd/distances_ref.cc)
-  add_library(knowhere_utils STATIC ${UTILS_SRC})
-  target_link_libraries(knowhere_utils PUBLIC glog::glog fmt::fmt)
-endif()]=])
-            string(REPLACE "\n" "\\n" FAISS_INS_A_ESC "${FAISS_INS_A}")
-            execute_process(COMMAND sed -i "/list(REMOVE_ITEM FAISS_SRCS \${FAISS_RHNSW_SRCS})/a ${FAISS_INS_A_ESC}" ${FAISS_CMAKE})
-
-            set(FAISS_INS_B [=[if(__LOONGARCH64)
-    knowhere_file_glob(GLOB FAISS_SPECIFIC_SRCS
-            thirdparty/faiss/faiss/impl/*avx.cpp
-            thirdparty/faiss/faiss/impl/*neon.cpp
-            thirdparty/faiss/faiss/impl/*sve.cpp
-            thirdparty/faiss/faiss/impl/*rvv.cpp
-            thirdparty/faiss/faiss/impl/*avx2.cpp
-            thirdparty/faiss/faiss/impl/*avx512.cpp
-            thirdparty/faiss/faiss/impl/*sse.cpp
+    # diskann
+    set(DISKANN_PATCH_VAL "#if defined(__loongarch64)\\n#define SIMDE_ENABLE_NATIVE_ALIASES\\n#include <simde/x86/sse.h>\\n#include <simde/x86/avx.h>\\n#else\\n#include <xmmintrin.h>\\n#endif")
+    execute_process(
+        COMMAND sed -i "s|#include <xmmintrin.h>|${DISKANN_PATCH_VAL}|g"
+        "${knowhere_SOURCE_DIR}/thirdparty/DiskANN/include/diskann/utils.h"
+        "${knowhere_SOURCE_DIR}/thirdparty/DiskANN/src/index.cpp"
     )
-
-  list(REMOVE_ITEM FAISS_SRCS ${FAISS_SPECIFIC_SRCS})
-  add_library(faiss STATIC ${FAISS_SRCS})
-  target_sources(faiss PRIVATE ${FAISS_FASTSCAN_SRCS})
-
-  target_compile_options(
-    faiss
-    PRIVATE $<$<COMPILE_LANGUAGE:CXX>:
-            -mlsx
-            -Wno-sign-compare
-            -Wno-unused-variable
-            -Wno-reorder
-            -Wno-unused-local-typedefs
-            -Wno-unused-function
-            -Wno-strict-aliasing>)
-
-  add_dependencies(faiss knowhere_utils)
-  target_link_libraries(faiss PUBLIC OpenMP::OpenMP_CXX ${BLAS_LIBRARIES}
-                                     ${LAPACK_LIBRARIES} knowhere_utils)
-  target_compile_definitions(faiss PRIVATE FINTEGER=int)
-endif()]=])
-            string(REPLACE "\n" "\\n" FAISS_INS_B_ESC "${FAISS_INS_B}")
-            execute_process(COMMAND sed -i "/include_directories(\${xxHash_INCLUDE_DIRS})/a ${FAISS_INS_B_ESC}" ${FAISS_CMAKE})
-        
-            # knowhere -- platform_check.cmake
-            set(PLAT_CMAKE "${knowhere_SOURCE_DIR}/cmake/utils/platform_check.cmake")
-            execute_process(COMMAND sed -i "/macro(detect_target_arch)/a \    check_symbol_exists(__loongarch64 \"\" __LOONGARCH64)" ${PLAT_CMAKE})
-            execute_process(COMMAND sed -i "s/AND NOT __X86_64/AND NOT __X86_64\\n     AND NOT __LOONGARCH64/g" ${PLAT_CMAKE})
-
-            # knowhere -- hook.cc
-            set(HOOK_CC "${knowhere_SOURCE_DIR}/src/simd/hook.cc")
-            execute_process(COMMAND sed -i "/#include \"distances_ref.h\"/i #if defined(__loongarch64)\\n#include \"distances_lsx.h\"\\n#endif" ${HOOK_CC})
-            execute_process(COMMAND sed -i "/decltype(fvec_inner_product)/i #if !defined(__loongarch__)" ${HOOK_CC})
-        
-            set(HOOK_LSX_PTRS [=[#else
-decltype(fvec_inner_product) fvec_inner_product = fvec_inner_product_lsx;
-decltype(fvec_L2sqr) fvec_L2sqr = fvec_L2sqr_lsx;
-decltype(fvec_L1) fvec_L1 = fvec_L1_lsx;
-decltype(fvec_Linf) fvec_Linf = fvec_Linf_lsx;
-decltype(fvec_norm_L2sqr) fvec_norm_L2sqr = fvec_norm_L2sqr_lsx;
-decltype(fvec_L2sqr_ny) fvec_L2sqr_ny = fvec_L2sqr_ny_lsx;
-decltype(fvec_inner_products_ny) fvec_inner_products_ny = fvec_inner_products_ny_lsx;
-decltype(fvec_madd) fvec_madd = fvec_madd_lsx;
-decltype(fvec_madd_and_argmin) fvec_madd_and_argmin = fvec_madd_and_argmin_lsx;
-
-decltype(fvec_L2sqr_ny_nearest) fvec_L2sqr_ny_nearest = fvec_L2sqr_ny_nearest_lsx;
-decltype(fvec_L2sqr_ny_nearest_y_transposed) fvec_L2sqr_ny_nearest_y_transposed =
-    fvec_L2sqr_ny_nearest_y_transposed_lsx;
-decltype(fvec_L2sqr_ny_transposed) fvec_L2sqr_ny_transposed = fvec_L2sqr_ny_transposed_lsx;
-
-decltype(fvec_inner_product_batch_4) fvec_inner_product_batch_4 = fvec_inner_product_batch_4_lsx;
-decltype(fvec_L2sqr_batch_4) fvec_L2sqr_batch_4 = fvec_L2sqr_batch_4_lsx;
-
-decltype(ivec_inner_product) ivec_inner_product = ivec_inner_product_lsx;
-decltype(ivec_L2sqr) ivec_L2sqr = ivec_L2sqr_lsx;
-#endif]=])
-            string(REPLACE "\n" "\\n" HOOK_LSX_PTRS_ESC "${HOOK_LSX_PTRS}")
-            execute_process(COMMAND sed -i "/decltype(ivec_L2sqr)/a ${HOOK_LSX_PTRS_ESC}" ${HOOK_CC})
-
-            set(HOOK_INIT [=[#if defined(__loongarch64)
-    fvec_inner_product = fvec_inner_product_lsx;
-    fvec_L2sqr = fvec_L2sqr_lsx;
-    fvec_L1 = fvec_L1_lsx;
-    fvec_Linf = fvec_Linf_lsx;
-
-    fvec_norm_L2sqr = fvec_norm_L2sqr_lsx;
-    fvec_L2sqr_ny = fvec_L2sqr_ny_lsx;
-    fvec_inner_products_ny = fvec_inner_products_ny_lsx;
-    fvec_madd = fvec_madd_lsx;
-    fvec_madd_and_argmin = fvec_madd_and_argmin_lsx;
-
-    ivec_inner_product = ivec_inner_product_lsx;
-    ivec_L2sqr = ivec_L2sqr_lsx;
-
-    fp16_vec_inner_product = fp16_vec_inner_product_ref;
-    fp16_vec_L2sqr = fp16_vec_L2sqr_ref;
-    fp16_vec_norm_L2sqr = fp16_vec_norm_L2sqr_ref;
-    fp16_vec_inner_product_batch_4 = fp16_vec_inner_product_batch_4_ref;
-    fp16_vec_L2sqr_batch_4 = fp16_vec_L2sqr_batch_4_ref;
-
-    bf16_vec_inner_product = bf16_vec_inner_product_ref;
-    bf16_vec_L2sqr = bf16_vec_L2sqr_ref;
-    bf16_vec_norm_L2sqr = bf16_vec_norm_L2sqr_ref;
-    bf16_vec_inner_product_batch_4 = bf16_vec_inner_product_batch_4_ref;
-    bf16_vec_L2sqr_batch_4 = bf16_vec_L2sqr_batch_4_ref;
-
-    int8_vec_inner_product = int8_vec_inner_product_ref;
-    int8_vec_L2sqr = int8_vec_L2sqr_ref;
-    int8_vec_norm_L2sqr = int8_vec_norm_L2sqr_ref;
-    int8_vec_inner_product_batch_4 = int8_vec_inner_product_batch_4_ref;
-    int8_vec_L2sqr_batch_4 = int8_vec_L2sqr_batch_4_ref;
-
-    rabitq_dp_popcnt = rabitq_dp_popcnt_ref;
-    fvec_masked_sum = fvec_masked_sum_ref;
-
-    u64_binary_search_eq = u64_binary_search_eq_ref;
-    u64_binary_search_ge = u64_binary_search_ge_ref;
-    calculate_hash = calculate_hash_ref;
-    u32_jaccard_distance = u32_jaccard_distance_ref;
-    u32_jaccard_distance_batch_4 = u32_jaccard_distance_batch_4_ref;
-    u64_jaccard_distance = u64_jaccard_distance_ref;
-    u64_jaccard_distance_batch_4 = u64_jaccard_distance_batch_4_ref;
-    minhash_lsh_hit = minhash_lsh_hit_ref;
-
-    simd_type = "GENERIC";
-    support_pq_fast_scan = false;
-#endif]=])
-            string(REPLACE "\n" "\\n" HOOK_INIT_ESC "${HOOK_INIT}")
-            execute_process(COMMAND sed -i "/fvec_hook(std::string& simd_type)/,/#if defined(__x86_64__)/ {/#if defined(__x86_64__)/i ${HOOK_INIT_ESC}
-}" ${HOOK_CC})
-            file(WRITE "${KNOWHERE_PATCH_MARKER}" "patched")
-        endif()
-    endif()
-
-    # make Knowhere masked-vbyte SSE code compile through SIMDe
-    set(_milvus_loongarch_varintdecode
-        "${knowhere_SOURCE_DIR}/src/index/sparse/codec/varintdecode.c")
-    if(EXISTS "${_milvus_loongarch_varintdecode}")
-        file(READ "${_milvus_loongarch_varintdecode}" _varintdecode_src)
-
-        string(REPLACE
-            "#elif defined(__aarch64__)\n#define SIMDE_ENABLE_NATIVE_ALIASES"
-            "#elif defined(__aarch64__) || defined(__loongarch64)\n#define SIMDE_ENABLE_NATIVE_ALIASES"
-            _varintdecode_src
-            "${_varintdecode_src}")
-
-        string(REPLACE
-            "#include <stdint.h>"
-            "#include <stddef.h>\n#include <stdint.h>"
-            _varintdecode_src
-            "${_varintdecode_src}")
-
-        file(WRITE "${_milvus_loongarch_varintdecode}" "${_varintdecode_src}")
-    endif()
 EOF
                 sed -i "/FetchContent_Populate( knowhere )/r LOONGARCH_PATCH" "$cmakelists"
                 rm -f LOONGARCH_PATCH
-
-                sed -i "s|__PATCHES_DIR__|$patches|" "$cmakelists"
-
-		# 修复conan管理milvus-common时，knowhere没有继承milvus-common::milvus-common头文件路径的问题
-                sed -i '/set_property(DIRECTORY/a\
-include_directories(SYSTEM ${milvus-common_INCLUDE_DIRS})' "$cmakelists"
             fi
         fi
     done
