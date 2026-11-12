@@ -134,10 +134,10 @@ EOF
             sed -i '/def build(self):/r LOONGARCH_PATCH' "$conanfile"
             rm -f LOONGARCH_PATCH
 
-	# 目前依赖的1.83.0中的 else if [ os.platform ] in ARM ARM64 { tmp = aapcs ; } 会导致loongarch的abi被误判为aapcs
-	# 最终构建出的 libboost_context.so.1.83.0 缺少jump_fcontext ontop_fcontext make_fcontext 符号
-	# 1.84.0 已修复该问题 
-	elif [[ "$dep" == "boost" ]]; then
+        # 目前依赖的1.83.0中的 else if [ os.platform ] in ARM ARM64 { tmp = aapcs ; } 会导致loongarch的abi被误判为aapcs
+        # 最终构建出的 libboost_context.so.1.83.0 缺少jump_fcontext ontop_fcontext make_fcontext 符号
+        # 1.84.0 已修复该问题 
+        elif [[ "$dep" == "boost" ]]; then
             sed -i 's/if self.settings.arch in (/if self.settings.arch in ("loongarch64", /' $conanfile
             
             cat > LOONGARCH_PATCH << 'EOF'
@@ -160,7 +160,7 @@ EOF
             sed -i '/apply_conandata_patches(self)/r LOONGARCH_PATCH' "$conanfile"
             rm -f LOONGARCH_PATCH
 	
-	# rocksbd 7.10.2+ 时去掉该补丁
+        # rocksbd 7.10.2+ 时去掉该补丁
         elif [[ "$dep" == "rocksdb" ]]; then
             sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
 
@@ -248,7 +248,7 @@ EOF
             sed -i '/apply_conandata_patches(self)/r LOONGARCH_PATCH' "$conanfile"
             rm -f LOONGARCH_PATCH
 
-        elif [[ "$dep_name" == "milvus-common" ]]; then
+        elif [[ "$dep" == "milvus-common" ]]; then
             if ! grep -q 'def _patch_sources(self):' "$conanfile"; then
                 echo "[dep_patch ERROR] _patch_sources() not found in $conanfile" >&2
                 return 1
@@ -276,11 +276,12 @@ EOF
             sed -i '/def _patch_sources(self)/r LOONGARCH_PATCH' "$conanfile"
             rm -f LOONGARCH_PATCH
 
-        elif [[ "$dep_name" == "icu" ]]; then
+        elif [[ "$dep" == "icu" ]]; then
+	    echo "hit icu! conanfile: $conanfile"
             sed -i 's/"mips64"/"mips64", "loongarch64"/' $conanfile
 
-	# 本地构建时 xz_utils conandata.yml 中的两个源无法使用(网络原因)
-        elif [[ "$dep_name" == "xz_utils" ]]; then
+        # 本地构建时 xz_utils conandata.yml 中的两个源无法使用(网络原因)
+        elif [[ "$dep" == "xz_utils" ]]; then
             conandata=$(find "$conan_data"* -path "*/conandata.yml" | head -n 1)
             sed -i '/https:\/\/tukaani\.org\/xz\/xz-5\.4\.5\.tar\.xz/i\
       - "https://github.com/tukaani-project/xz/releases/download/v5.4.5/xz-5.4.5.tar.xz"' $conandata
