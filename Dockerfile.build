@@ -13,8 +13,12 @@ RUN dnf install -y \
 
 RUN pip3 install jinja2==3.1.3
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-      sh -s -- -y --default-toolchain nightly
+RUN curl --proto '=https' --tlsv1.2 -sSf \
+    --retry 5 --retry-delay 3 --retry-all-errors \
+    -o /tmp/rustup-init.sh https://sh.rustup.rs && \
+    sh /tmp/rustup-init.sh -y --default-toolchain nightly && \
+    rm /tmp/rustup-init.sh
+
 ENV PATH=/root/.cargo/bin:$PATH
 
 CMD ["/bin/bash"]
